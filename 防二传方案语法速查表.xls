@@ -1,0 +1,129 @@
+﻿<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>td,th{border:1px solid #ccc;padding:5px 8px;font-size:12px;vertical-align:top;}th{background:#faf4f1;color:#8a3324;font-weight:bold;}h1{font-size:16px;color:#8a3324;}h2{font-size:13px;color:#8a3324;}.bar{display:none;}</style></head><body>
+
+  <h1>防二传方案语法速查表</h1>
+  <p class="sub">函数 · 参数 · 正则 · 路径 · 常量</p>
+
+  <div class="bar">
+    <button onclick="saveExcel()">保存为 Excel</button>
+    <button onclick="saveHtml()">保存为网页</button>
+  </div>
+
+  <h2>一、零宽字符常量</h2>
+  <table>
+    <tbody><tr><th>常量名</th><th>Unicode</th><th>含义</th><th>转义写法</th></tr>
+    <tr><td>Z0</td><td>U+200B</td><td>二进制 0</td><td><code>"\u200B"</code></td></tr>
+    <tr><td>Z1</td><td>U+200C</td><td>二进制 1</td><td><code>"\u200C"</code></td></tr>
+    <tr><td>PRE</td><td>U+200D U+FEFF</td><td>水印前缀</td><td><code>"\u200D\uFEFF"</code></td></tr>
+    <tr><td>SUF</td><td>U+FEFF U+200D</td><td>水印后缀</td><td><code>"\uFEFF\u200D"</code></td></tr>
+  </tbody></table>
+
+  <h2>二、核心函数</h2>
+  <table>
+    <tbody><tr><th>函数名</th><th>参数</th><th>返回值</th><th>作用</th></tr>
+    <tr><td>encodeStealth</td><td>text</td><td>零宽字符串</td><td>文本编码成零宽字符</td></tr>
+    <tr><td>decodeStealth</td><td>source</td><td>字符串数组</td><td>零宽字符还原成文本</td></tr>
+    <tr><td>processDocXml</td><td>xml, fullMark, shortMark</td><td>新 xml</td><td>向文本节点插水印</td></tr>
+    <tr><td>injectDoc</td><td>arrayBuffer, readerQQ, token, authorName, authorQQ</td><td>Uint8Array</td><td>完整注入五层水印</td></tr>
+    <tr><td>analyzeDocx</td><td>zip, filename</td><td>结果对象</td><td>单个 docx 溯源分析</td></tr>
+    <tr><td>traceFile</td><td>file</td><td>结果数组</td><td>入口：区分 zip 和 docx</td></tr>
+  </tbody></table>
+
+  <h2>三、水印明文格式</h2>
+  <table>
+    <tbody><tr><th>类型</th><th>格式</th></tr>
+    <tr><td>完整水印</td><td><code>AUTH:作者名:作者QQ|TRACE:读者QQ|VERIFIED:1|T:令牌短码</code></td></tr>
+    <tr><td>短水印</td><td><code>Q读者QQ</code></td></tr>
+  </tbody></table>
+
+  <h2>四、注入位置（文件路径）</h2>
+  <table>
+    <tbody><tr><th>路径</th><th>内容</th><th>注入方式</th></tr>
+    <tr><td><code>word/document.xml</code></td><td>正文</td><td>文本节点 + 段落尾部隐藏 Run</td></tr>
+    <tr><td><code>word/header*.xml</code></td><td>页眉</td><td>文本节点</td></tr>
+    <tr><td><code>word/footer*.xml</code></td><td>页脚</td><td>文本节点</td></tr>
+    <tr><td><code>word/endnotes.xml</code></td><td>尾注</td><td>文本节点</td></tr>
+    <tr><td><code>word/footnotes.xml</code></td><td>脚注</td><td>文本节点</td></tr>
+    <tr><td><code>word/comments*.xml</code></td><td>批注</td><td>文本节点</td></tr>
+    <tr><td><code>word/_author_auth.dat</code></td><td>作者归属</td><td>新建文件</td></tr>
+    <tr><td><code>word/_dist_trace.dat</code></td><td>分发追踪</td><td>新建文件</td></tr>
+    <tr><td><code>docProps/custom.xml</code></td><td>自定义属性</td><td>改写 XML</td></tr>
+  </tbody></table>
+
+  <h2>五、自定义数据文件格式</h2>
+  <table>
+    <tbody><tr><th>文件</th><th>内容</th></tr>
+    <tr><td><code>word/_author_auth.dat</code></td><td><code>ORIGIN_AUTHOR=作者名</code><br><code>AUTHOR_QQ=作者QQ</code></td></tr>
+    <tr><td><code>word/_dist_trace.dat</code></td><td><code>DIST_TARGET_QQ=读者QQ</code><br><code>MAIL_VERIFIED=1</code><br><code>VERIFY_TOKEN=令牌</code><br><code>VERIFY_TIME=时间</code></td></tr>
+  </tbody></table>
+
+  <h2>六、自定义属性名</h2>
+  <table>
+    <tbody><tr><th>属性名</th><th>含义</th></tr>
+    <tr><td><code>DistTargetQQ</code></td><td>这份文档发给了谁</td></tr>
+    <tr><td><code>OriginAuthorQQ</code></td><td>原创作者是谁</td></tr>
+  </tbody></table>
+
+  <h2>七、正则表达式</h2>
+  <table>
+    <tbody><tr><th>用途</th><th>正则</th></tr>
+    <tr><td>匹配文本节点</td><td><code>/&lt;w:t(\s[^&gt;]*)?&gt;([\s\S]*?)&lt;\/w:t&gt;/g</code></td></tr>
+    <tr><td>匹配零宽水印</td><td><code>/PRE([\u200B\u200C]+)SUF/g</code></td></tr>
+    <tr><td>匹配完整水印</td><td><code>/AUTH:(.*?):(\d+)\|TRACE:(\d+)(?:\|VERIFIED:(\d))?/</code></td></tr>
+    <tr><td>匹配短水印</td><td><code>/^Q(\d{5,12})$/</code></td></tr>
+    <tr><td>匹配追踪 QQ</td><td><code>/DIST_TARGET_QQ=(\d+)/</code></td></tr>
+    <tr><td>匹配作者名</td><td><code>/ORIGIN_AUTHOR=(.*)/</code></td></tr>
+    <tr><td>匹配作者 QQ</td><td><code>/AUTHOR_QQ=(\d+)/</code></td></tr>
+    <tr><td>匹配自定义属性</td><td><code>/name="DistTargetQQ"[^&gt;]*&gt;[^&lt;]*&lt;vt:lpwstr&gt;(\d+)&lt;/</code></td></tr>
+  </tbody></table>
+
+  <h2>八、接口路径</h2>
+  <table>
+    <tbody><tr><th>方法</th><th>路径</th><th>作用</th></tr>
+    <tr><td>POST</td><td><code>/api/public/qq-code/send</code></td><td>发送邮箱验证码</td></tr>
+    <tr><td>POST</td><td><code>/api/public/qq-code/verify</code></td><td>校验验证码，返回 token</td></tr>
+    <tr><td>POST</td><td><code>/api/public/doc/seal</code></td><td>托管密钥，返回 docId + pageKey</td></tr>
+    <tr><td>POST</td><td><code>/api/public/doc/unseal</code></td><td>凭 token 取回密钥</td></tr>
+  </tbody></table>
+
+  <h2>九、加密参数</h2>
+  <table>
+    <tbody><tr><th>项目</th><th>值</th></tr>
+    <tr><td>算法</td><td>AES-256-GCM</td></tr>
+    <tr><td>密钥长度</td><td>256 位</td></tr>
+    <tr><td>IV 长度</td><td>12 字节</td></tr>
+    <tr><td>密钥导出格式</td><td>raw</td></tr>
+    <tr><td>加密对象</td><td>JSON 字符串（文档列表）</td></tr>
+    <tr><td>打包压缩</td><td>DEFLATE</td></tr>
+  </tbody></table>
+
+  <h2>十、溯源结果对象</h2>
+  <table>
+    <tbody><tr><th>字段</th><th>类型</th><th>含义</th></tr>
+    <tr><td>filename</td><td>string</td><td>文件名</td></tr>
+    <tr><td>authorName</td><td>string</td><td>原作者名</td></tr>
+    <tr><td>authorQQ</td><td>string</td><td>原作者 QQ</td></tr>
+    <tr><td>leakerQQ</td><td>string</td><td>泄露者 QQ</td></tr>
+    <tr><td>verified</td><td>boolean</td><td>是否邮箱验证</td></tr>
+    <tr><td>hits</td><td>string[]</td><td>证据链数组</td></tr>
+  </tbody></table>
+
+  <h2>十一、证据链文字</h2>
+  <table>
+    <tbody><tr><th>命中位置</th><th>提示文字</th></tr>
+    <tr><td><code>_dist_trace.dat</code></td><td>颢核分发目标</td></tr>
+    <tr><td><code>MAIL_VERIFIED=1</code></td><td>QQ 邮箱验证通过</td></tr>
+    <tr><td><code>_author_auth.dat</code></td><td>原创归属</td></tr>
+    <tr><td>XML 零宽水印</td><td>正文隐形水印(文件名)</td></tr>
+    <tr><td>短水印</td><td>短水印(文件名)</td></tr>
+    <tr><td><code>custom.xml</code></td><td>自定义属性(DistTargetQQ)</td></tr>
+  </tbody></table>
+
+  <h2>十二、命令行</h2>
+  <table>
+    <tbody><tr><th>命令</th><th>作用</th></tr>
+    <tr><td><code>anti-redistribute trace 文件.docx</code></td><td>溯源单个文件</td></tr>
+    <tr><td><code>anti-redistribute trace 文件.zip --json</code></td><td>批量溯源输出 JSON</td></tr>
+    <tr><td><code>anti-redistribute seal ./目录 --author "名字" --qq 号码</code></td><td>生成分发页</td></tr>
+  </tbody></table>
+
+</body></html>
